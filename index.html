@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>通勤路線 // COMMUTE.SYS</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:   #050810;
+    --bg2:  #090d1a;
+    --bg3:  #0d1428;
+    --cyan: #00f5ff;
+    --cdim: #00c4cc;
+    --pink: #ff2d78;
+    --yell: #f5e642;
+    --grn:  #39ff5a;
+    --org:  #ff8c00;
+    --pur:  #b06aff;
+    --text: #c8d8f0;
+    --dim:  #4a6080;
+    --bord: #1a2a4a;
+    --gc: 0 0 8px #00f5ff55,0 0 20px #00f5ff1a;
+    --gp: 0 0 8px #ff2d7855,0 0 20px #ff2d781a;
+    --gy: 0 0 8px #f5e64255,0 0 20px #f5e6421a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'Noto Sans TC',sans-serif;
+    min-height:100vh;min-height:100dvh;
+    overflow-x:hidden;position:relative;
+  }
+  body::before{
+    content:'';position:fixed;inset:0;
+    background-image:
+      linear-gradient(rgba(0,245,255,.025) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(0,245,255,.025) 1px,transparent 1px);
+    background-size:36px 36px;pointer-events:none;z-index:0;
+  }
+  body::after{
+    content:'';position:fixed;inset:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px);
+    pointer-events:none;z-index:1;
+  }
+  .wrap{position:relative;z-index:2;max-width:680px;margin:0 auto;padding:20px 14px 90px}
+
+  /* ── HEADER ── */
+  .hdr{text-align:center;margin-bottom:26px}
+  .syslbl{
+    font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--cdim);
+    letter-spacing:3px;margin-bottom:6px;
+    animation:bslow 4s infinite;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  @keyframes bslow{0%,85%,100%{opacity:1}90%{opacity:.2}}
+  .logo{
+    font-family:'Orbitron',monospace;font-weight:900;
+    font-size:clamp(26px,8vw,42px);color:var(--cyan);
+    text-shadow:var(--gc);letter-spacing:3px;line-height:1;
+  }
+  .logo .sl{color:var(--pink);text-shadow:var(--gp)}
+  .sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);margin-top:6px;letter-spacing:2px}
+  .gearrow{display:flex;justify-content:center;align-items:center;gap:10px;margin:14px 0 0}
+  .gline{flex:1;max-width:70px;height:1px;background:linear-gradient(90deg,transparent,var(--bord),transparent)}
+  .gear{display:inline-block;color:var(--dim)}
+  .g1{font-size:18px;animation:rot 9s linear infinite}
+  .g2{font-size:13px;animation:rr 6s linear infinite}
+  .g3{font-size:9px;animation:rot 4s linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  @keyframes rr{to{transform:rotate(-360deg)}}
+
+  /* ── STATION TABS ── */
+  .seclbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:3px;text-transform:uppercase;margin-bottom:8px}
+  .stntabs{display:flex;gap:6px;margin-bottom:22px}
+  .stntab{
+    flex:1;background:var(--bg2);border:1px solid var(--bord);
+    border-radius:6px;padding:11px 6px;cursor:pointer;
+    text-align:center;transition:border-color .2s,background .2s,box-shadow .2s;
+    touch-action:manipulation;
+  }
+  .stntab .tname{
+    font-family:'Noto Sans TC',sans-serif;
+    font-size:12px;font-weight:700;color:var(--dim);
+    white-space:nowrap;
+  }
+  .stntab:hover{border-color:rgba(0,245,255,.35)}
+  .stntab.active{border-color:var(--cyan);background:rgba(0,245,255,.06);box-shadow:var(--gc)}
+  .stntab.active .tname{color:var(--cyan)}
+
+  /* ── PANEL ── */
+  .panel{display:none}
+  .panel.active{display:block;animation:pfade .25s ease both}
+  @keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+  /* ── BLOCK ── */
+  .blk{margin-bottom:22px}
+  .blk-hdr{
+    display:flex;align-items:center;gap:8px;
+    margin-bottom:10px;padding-bottom:8px;
+    border-bottom:1px solid var(--bord);
+  }
+  .blk-bar{width:4px;height:18px;border-radius:2px;flex-shrink:0}
+  .blk-title{font-family:'Noto Sans TC',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
+  .blk-count{
+    margin-left:auto;font-family:'Orbitron',monospace;font-size:10px;color:var(--cyan);
+    background:rgba(0,245,255,.07);border:1px solid rgba(0,245,255,.2);
+    padding:2px 9px;border-radius:20px;white-space:nowrap;
+  }
+  .blk-count.pk{color:var(--pink);background:rgba(255,45,120,.07);border-color:rgba(255,45,120,.2)}
+  .blk-count.pu{color:var(--pur);background:rgba(176,106,255,.07);border-color:rgba(176,106,255,.2)}
+
+  .blk.alt{
+    background:rgba(176,106,255,.04);border:1px solid rgba(176,106,255,.18);
+    border-radius:8px;padding:14px;margin-bottom:22px;
+  }
+  .blk.alt .blk-hdr{border-bottom-color:rgba(176,106,255,.15)}
+  .blk.alt .blk-bar{background:var(--pur)}
+  .blk.alt .blk-title{color:var(--pur)}
+
+  /* ── BUS CARD ── */
+  .card{
+    background:var(--bg2);border:1px solid var(--bord);border-radius:8px;
+    padding:12px 14px 12px 18px;margin-bottom:8px;
+    display:flex;align-items:center;gap:12px;
+    position:relative;overflow:hidden;
+    transition:transform .15s,background .15s;
+    animation:cin .3s ease both;
+  }
+  @keyframes cin{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+  @media(hover:hover){.card:hover{background:var(--bg3);transform:translateX(3px)}}
+  .card:active{background:var(--bg3)}
+  .cbar{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:8px 0 0 8px}
+  .cnum{font-family:'Orbitron',monospace;font-weight:700;font-size:16px;min-width:50px;text-align:center;line-height:1;flex-shrink:0}
+  .cinfo{flex:1;min-width:0}
+  .cdest{font-size:14px;font-weight:700;color:var(--text)}
+  .cnote{font-size:10px;color:var(--yell);margin-top:3px;opacity:.85}
+  .cbadge{font-family:'Share Tech Mono',monospace;font-size:9px;padding:3px 7px;border-radius:3px;white-space:nowrap;letter-spacing:.5px;flex-shrink:0}
+
+  /* colour themes */
+  .cc .cbar{background:var(--cyan);box-shadow:var(--gc)}.cc .cnum{color:var(--cyan);text-shadow:var(--gc)}.cc .cbadge{background:rgba(0,245,255,.08);border:1px solid rgba(0,245,255,.22);color:var(--cyan)}
+  .cp .cbar{background:var(--pink);box-shadow:var(--gp)}.cp .cnum{color:var(--pink);text-shadow:var(--gp)}.cp .cbadge{background:rgba(255,45,120,.08);border:1px solid rgba(255,45,120,.22);color:var(--pink)}
+  .cy .cbar{background:var(--yell);box-shadow:var(--gy)}.cy .cnum{color:var(--yell);text-shadow:var(--gy)}.cy .cbadge{background:rgba(245,230,66,.08);border:1px solid rgba(245,230,66,.22);color:var(--yell)}
+  .cg .cbar{background:var(--grn)}.cg .cnum{color:var(--grn)}.cg .cbadge{background:rgba(57,255,90,.08);border:1px solid rgba(57,255,90,.22);color:var(--grn)}
+  .co .cbar{background:var(--org)}.co .cnum{color:var(--org)}.co .cbadge{background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.22);color:var(--org)}
+  .cu .cbar{background:var(--pur)}.cu .cnum{color:var(--pur)}.cu .cbadge{background:rgba(176,106,255,.08);border:1px solid rgba(176,106,255,.22);color:var(--pur)}
+
+  /* ── EXTERNAL LINKS ── */
+  .divider{display:flex;align-items:center;gap:8px;margin:22px 0 12px}
+  .dline{flex:1;height:1px;background:var(--bord)}
+  .dtxt{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--dim);letter-spacing:2px}
+  .linksrow{display:flex;gap:8px;flex-wrap:wrap}
+  .extlink{
+    flex:1;min-width:130px;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    padding:10px 12px;background:var(--bg2);border:1px solid var(--bord);
+    border-radius:6px;font-family:'Share Tech Mono',monospace;
+    font-size:10px;color:var(--dim);text-decoration:none;
+    letter-spacing:.5px;transition:all .2s;touch-action:manipulation;
+  }
+  .extlink:hover,.extlink:active{border-color:var(--cdim);color:var(--cyan)}
+
+  /* ── FOOTER ── */
+  .foot{
+    margin-top:36px;padding-top:14px;border-top:1px solid var(--bord);
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;
+  }
+  .fl,.fr{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:1px}
+  .cur{display:inline-block;width:6px;height:11px;background:var(--cyan);vertical-align:text-bottom;animation:bc 1s step-end infinite;margin-left:2px}
+  @keyframes bc{0%,100%{opacity:1}50%{opacity:0}}
+  .sfade{position:fixed;bottom:0;left:0;right:0;height:56px;background:linear-gradient(transparent,var(--bg));pointer-events:none;z-index:10}
+
+  /* MOBILE */
+  @media(max-width:480px){
+    .wrap{padding:16px 12px 90px}
+    .stntab .tname{font-size:11px}
+    .cnum{font-size:14px;min-width:44px}
+    .cdest{font-size:13px}
+    .card{padding:11px 12px 11px 16px;gap:10px}
+    .extlink{font-size:9px;min-width:100px}
+  }
+</style>
+</head>
+<body>
+
+<div class="sfade"></div>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="syslbl" id="syslbl">// COMMUTE.SYS // 內湖通勤路線</div>
+    <div class="logo">BUS<span class="sl">_</span>NAV</div>
+    <div class="sub">NEIHU · TAIPEI · ROUTE GUIDE</div>
+    <div class="gearrow">
+      <div class="gline"></div>
+      <span class="gear g1">⚙</span><span class="gear g2">⚙</span><span class="gear g3">⚙</span>
+      <span class="gear g2">⚙</span><span class="gear g1">⚙</span>
+      <div class="gline"></div>
+    </div>
+  </div>
+
+  <!-- STATION TABS -->
+  <div class="seclbl">// 選擇你現在所在的站</div>
+  <div class="stntabs">
+    <button class="stntab" id="tab-jinlong" onclick="switchTab('jinlong')">
+      <div class="tname">🏯 金龍寺</div>
+    </button>
+    <button class="stntab" id="tab-mrt" onclick="switchTab('mrt')">
+      <div class="tname">🚇 捷運內湖站</div>
+    </button>
+    <button class="stntab" id="tab-jlroad" onclick="switchTab('jlroad')">
+      <div class="tname">🚏 金龍路口</div>
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════
+       PANEL 1 · 金龍寺
+  ═══════════════════════════════ -->
+  <div class="panel" id="panel-jinlong">
+
+    <div class="blk">
+      <div class="blk-hdr">
+        <div class="blk-bar" style="background:var(--pink);box-shadow:var(--gp)"></div>
+        <div class="blk-title">前往 金龍路口</div>
+        <div class="blk-count pk">8 條</div>
+      </div>
+      <div id="jl-to-road"></div>
+    </div>
+
+    <div class="blk">
+      <div class="blk-hdr">
+        <div class="blk-bar" style="background:var(--cyan);box-shadow:var(--gc)"></div>
+        <div class="blk-title">前往 捷運內湖站</div>
+        <div class="blk-count">4 條</div>
+      </div>
+      <div id="jl-to-mrt"></div>
+    </div>
+
+    <div class="blk alt">
+      <div class="blk-hdr">
+        <div class="blk-bar"></div>
+        <div class="blk-title">代替方案 · 碧湖國小站下車</div>
+        <div class="blk-count pu">2 條</div>
+      </div>
+      <div id="jl-to-bihu"></div>
+    </div>
+
+    <div class="divider"><div class="dline"></div><div class="dtxt">EXTERNAL LINKS</div><div class="dline"></div></div>
+    <div class="linksrow">
+      <a class="extlink" href="https://pda5284.gov.taipei/MQS/stoplocation.jsp?slid=1069" target="_blank">⚡ 金龍寺 即時動態</a>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════
+       PANEL 2 · 捷運內湖站
+  ═══════════════════════════════ -->
+  <div class="panel" id="panel-mrt">
+    <div class="blk">
+      <div class="blk-hdr">
+        <div class="blk-bar" style="background:var(--cyan);box-shadow:var(--gc)"></div>
+        <div class="blk-title">前往 金龍寺</div>
+        <div class="blk-count">7 條</div>
+      </div>
+      <div id="mrt-to-jl"></div>
+    </div>
+
+    <div class="divider"><div class="dline"></div><div class="dtxt">EXTERNAL LINKS</div><div class="dline"></div></div>
+    <div class="linksrow">
+      <a class="extlink" href="https://pda5284.gov.taipei/MQS/stoplocation.jsp?slid=50548" target="_blank">⚡ 捷運內湖站 即時動態</a>
+      <a class="extlink" href="https://pda5284.gov.taipei/MQS/stoplocation.jsp?slid=1069" target="_blank">⚡ 金龍寺 即時動態</a>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════
+       PANEL 3 · 金龍路口
+  ═══════════════════════════════ -->
+  <div class="panel" id="panel-jlroad">
+    <div class="blk">
+      <div class="blk-hdr">
+        <div class="blk-bar" style="background:var(--pink);box-shadow:var(--gp)"></div>
+        <div class="blk-title">前往 金龍寺</div>
+        <div class="blk-count pk">9 條</div>
+      </div>
+      <div id="road-to-jl"></div>
+    </div>
+
+    <div class="divider"><div class="dline"></div><div class="dtxt">EXTERNAL LINKS</div><div class="dline"></div></div>
+    <div class="linksrow">
+      <a class="extlink" href="https://pda5284.gov.taipei/MQS/stoplocation.jsp?slid=50449" target="_blank">⚡ 金龍路口 即時動態</a>
+      <a class="extlink" href="https://pda5284.gov.taipei/MQS/stoplocation.jsp?slid=1069" target="_blank">⚡ 金龍寺 即時動態</a>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="fl">DATA · 台北市公車5284系統</div>
+    <div class="fr">COMMUTE.SYS<span class="cur"></span></div>
+  </div>
+</div>
+
+<script>
+const TH = {
+  '267':'cc','247':'co','521':'cg','藍27':'cp',
+  '222':'cy','552':'cu','551':'cc',
+  '677':'cg','677副':'cg','紅31':'cy',
+};
+
+const ROUTES = {
+  'jl-to-road': [
+    { num:'222',   dest:'往 衡陽路' },
+    { num:'247',   dest:'往 東湖',           note:'247區間車不可搭' },
+    { num:'267',   dest:'往 捷運大湖公園站' },
+    { num:'551',   dest:'往 捷運昆陽站' },
+    { num:'藍27',  dest:'往 內湖行政中心' },
+    { num:'677',   dest:'往 汐止社后' },
+    { num:'677副', dest:'往 汐止社后' },
+    { num:'紅31',  dest:'往 捷運大湖公園站' },
+  ],
+  'jl-to-mrt': [
+    { num:'222',  dest:'往 衡陽路' },
+    { num:'521',  dest:'往 捷運忠孝復興站' },
+    { num:'551',  dest:'往 捷運昆陽站' },
+    { num:'藍27', dest:'往 內湖行政中心' },
+  ],
+  'jl-to-bihu': [
+    { num:'247', dest:'往 台北車站', note:'247區間車不可搭 · 碧湖國小站下車後步行' },
+    { num:'552', dest:'終點 金龍寺', note:'碧湖國小站下車後步行' },
+  ],
+  'mrt-to-jl': [
+    { num:'247',  dest:'往 東湖',           note:'247區間車不可搭' },
+    { num:'521',  dest:'往 內湖' },
+    { num:'藍27', dest:'往 捷運市政府站' },
+    { num:'222',  dest:'往 內湖' },
+    { num:'552',  dest:'終點 金龍寺' },
+    { num:'551',  dest:'往 內湖科技園區' },
+    { num:'267',  dest:'往 捷運大湖公園站' },
+  ],
+  'road-to-jl': [
+    { num:'267',   dest:'往 天母',           note:'267在此為去程方向停靠' },
+    { num:'222',   dest:'往 內湖' },
+    { num:'247',   dest:'往 台北車站',       note:'247區間車不可搭' },
+    { num:'551',   dest:'往 內湖科技園區' },
+    { num:'552',   dest:'終點 金龍寺' },
+    { num:'677',   dest:'終點 金龍寺' },
+    { num:'677副', dest:'終點 金龍寺' },
+    { num:'紅31',  dest:'往 捷運民權西路站' },
+    { num:'藍27',  dest:'往 捷運市政府站' },
+  ],
+};
+
+function renderAll() {
+  Object.keys(ROUTES).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = ROUTES[id].map((r, i) => `
+      <div class="card ${TH[r.num]||'cc'}" style="animation-delay:${(i*.055).toFixed(2)}s">
+        <div class="cbar"></div>
+        <div class="cnum">${r.num}</div>
+        <div class="cinfo">
+          <div class="cdest">${r.dest}</div>
+          ${r.note ? `<div class="cnote">⚠ ${r.note}</div>` : ''}
+        </div>
+        <div class="cbadge">${r.num}</div>
+      </div>`).join('');
+  });
+}
+
+let cur = null;
+
+function switchTab(id) {
+  if (cur === id) return;
+  cur = id;
+  ['jinlong','mrt','jlroad'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t === id);
+    document.getElementById('panel-'+t).classList.toggle('active', t === id);
+  });
+}
+
+// 初始化：渲染所有卡片，預設顯示金龍寺分頁
+renderAll();
+switchTab('jinlong');
+
+// 時鐘
+function tick() {
+  const n = new Date();
+  const t = [n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+  const el = document.getElementById('syslbl');
+  if (el) el.textContent = `// COMMUTE.SYS // ${t} // 內湖通勤路線`;
+}
+setInterval(tick, 1000); tick();
+</script>
+</body>
+</html>
